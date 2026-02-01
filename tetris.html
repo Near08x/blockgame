@@ -11,6 +11,10 @@
             box-sizing: border-box;
         }
 
+        html, body {
+            height: 100%;
+        }
+
         body {
             display: flex;
             flex-direction: column;
@@ -24,6 +28,8 @@
             -webkit-touch-callout: none;
             -webkit-user-select: none;
             user-select: none;
+            overscroll-behavior: none;
+            touch-action: none;
         }
 
         h1 {
@@ -48,6 +54,7 @@
             gap: 1px;
             padding: 5px;
             background-color: #111;
+            touch-action: none;
         }
 
         .cell {
@@ -127,6 +134,13 @@
         .controls {
             background: rgba(255, 255, 255, 0.1);
             padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .action-buttons {
+            background: rgba(255, 255, 255, 0.12);
+            padding: 16px;
             border-radius: 10px;
             text-align: center;
         }
@@ -249,6 +263,10 @@
                 font-size: 16px;
                 padding: 12px 20px;
             }
+
+            .action-buttons {
+                padding: 12px;
+            }
         }
 
         @media (min-width: 769px) {
@@ -264,6 +282,12 @@
         <div class="game-board" id="gameBoard"></div>
         
         <div class="sidebar">
+            <div class="action-buttons">
+                <button id="startBtn">Iniciar</button>
+                <button id="pauseBtn" disabled>Pausar</button>
+                <button id="restartBtn" disabled>Reiniciar</button>
+            </div>
+
             <div class="info">
                 <h2 id="scoreDisplay">Puntos: 0</h2>
                 <p>Líneas: <span id="linesDisplay">0</span></p>
@@ -280,9 +304,6 @@
                 <p><strong>⬆️</strong> Rotar</p>
                 <p><strong>⬇️</strong> Bajar rápido</p>
                 <p><strong>ESPACIO</strong> Pausa</p>
-                <button id="startBtn">Iniciar</button>
-                <button id="pauseBtn" disabled>Pausar</button>
-                <button id="restartBtn" disabled>Reiniciar</button>
             </div>
 
             <div class="gesture-hint" id="gestureHint">
@@ -609,9 +630,11 @@
             render();
         });
 
-        // Prevenir zoom pinch
+        // Prevenir scroll/zoom en móvil durante el juego
         document.addEventListener('touchmove', (e) => {
-            if (e.touches.length > 1) {
+            if (window.innerWidth <= 768 && game.gameRunning) {
+                e.preventDefault();
+            } else if (e.touches.length > 1) {
                 e.preventDefault();
             }
         }, { passive: false });
@@ -625,6 +648,11 @@
             }
             lastTouchEnd = now;
         }, false);
+
+        // Prevenir zoom por gesto (iOS)
+        document.addEventListener('gesturestart', (e) => {
+            e.preventDefault();
+        });
 
         document.getElementById('startBtn').addEventListener('click', () => {
             game.start();
@@ -681,7 +709,11 @@
         gameBoard.addEventListener('touchmove', (e) => {
             if (!game.gameRunning || game.paused) return;
             e.preventDefault();
-            isSwipe = true;
+            const moveX = e.touches[0].clientX - touchStartX;
+            const moveY = e.touches[0].clientY - touchStartY;
+            if (Math.abs(moveX) > 8 || Math.abs(moveY) > 8) {
+                isSwipe = true;
+            }
         }, { passive: false });
 
         gameBoard.addEventListener('touchend', (e) => {
@@ -705,7 +737,7 @@
         function handleSwipe() {
             const diffX = touchEndX - touchStartX;
             const diffY = touchEndY - touchStartY;
-            const threshold = 20;
+            const threshold = 15;
 
             // Si el movimiento es más vertical que horizontal
             if (Math.abs(diffY) > Math.abs(diffX)) {
