@@ -13,12 +13,20 @@
 
         body {
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             font-family: 'Arial', sans-serif;
-            flex-direction: column;
+            padding: 20px;
+        }
+
+        h1 {
+            color: white;
+            font-size: 32px;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
         }
 
         .container {
@@ -60,6 +68,9 @@
 
         .sidebar {
             color: white;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
         }
 
         .info {
@@ -156,10 +167,108 @@
             color: #ff4444;
             margin-bottom: 10px;
         }
+
+        .touch-controls {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .touch-controls.active {
+            display: grid;
+            grid-template-columns: repeat(3, 50px);
+            grid-template-rows: repeat(3, 50px);
+            gap: 8px;
+            width: fit-content;
+        }
+
+        .touch-btn {
+            width: 50px;
+            height: 50px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.1s;
+            user-select: none;
+            -webkit-user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .touch-btn:active {
+            background: #764ba2;
+            transform: scale(0.95);
+        }
+
+        .touch-btn:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        .touch-btn-rotate {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        .touch-btn-left {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        .touch-btn-down {
+            grid-column: 2;
+            grid-row: 2;
+        }
+
+        .touch-btn-right {
+            grid-column: 3;
+            grid-row: 2;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .touch-controls.active {
+                display: grid;
+            }
+
+            .game-board {
+                grid-template-columns: repeat(10, 25px);
+                grid-template-rows: repeat(20, 25px);
+            }
+
+            .cell {
+                width: 25px;
+                height: 25px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .info, .next-piece, .controls {
+                padding: 15px;
+            }
+        }
+
+        @media (min-width: 769px) {
+            .touch-controls {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body>
-    <h1 style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); color: white; font-size: 32px; margin: 0;">🎮 Near08x Blockgame</h1>
+    <h1>🎮 Near08x Blockgame</h1>
     <div class="container">
         <div class="game-board" id="gameBoard"></div>
         
@@ -183,6 +292,13 @@
                 <button id="startBtn">Iniciar</button>
                 <button id="pauseBtn" disabled>Pausar</button>
                 <button id="restartBtn" disabled>Reiniciar</button>
+            </div>
+
+            <div class="touch-controls" id="touchControls">
+                <button class="touch-btn touch-btn-rotate" id="rotateTouchBtn">🔄</button>
+                <button class="touch-btn touch-btn-left" id="leftTouchBtn">⬅️</button>
+                <button class="touch-btn touch-btn-down" id="downTouchBtn">⬇️</button>
+                <button class="touch-btn touch-btn-right" id="rightTouchBtn">➡️</button>
             </div>
 
             <div id="gameOverDiv"></div>
@@ -480,15 +596,19 @@
             
             switch(e.key) {
                 case 'ArrowLeft':
+                    e.preventDefault();
                     game.moveLeft();
                     break;
                 case 'ArrowRight':
+                    e.preventDefault();
                     game.moveRight();
                     break;
                 case 'ArrowUp':
+                    e.preventDefault();
                     game.rotate();
                     break;
                 case 'ArrowDown':
+                    e.preventDefault();
                     game.drop();
                     break;
                 case ' ':
@@ -504,12 +624,18 @@
             document.getElementById('startBtn').disabled = true;
             document.getElementById('pauseBtn').disabled = false;
             document.getElementById('restartBtn').disabled = false;
+            // Mostrar controles táctiles solo en móviles
+            if (window.innerWidth <= 768) {
+                document.getElementById('touchControls').classList.add('active');
+            }
+            updateTouchButtonsState();
             render();
         });
 
         document.getElementById('pauseBtn').addEventListener('click', () => {
             game.togglePause();
             document.getElementById('pauseBtn').textContent = game.paused ? 'Reanudar' : 'Pausar';
+            updateTouchButtonsState();
         });
 
         document.getElementById('restartBtn').addEventListener('click', () => {
@@ -519,11 +645,57 @@
             document.getElementById('pauseBtn').textContent = 'Pausar';
             document.getElementById('restartBtn').disabled = true;
             document.getElementById('gameOverDiv').innerHTML = '';
+            document.getElementById('touchControls').classList.remove('active');
             render();
+        });
+
+        // Touch controls
+        function updateTouchButtonsState() {
+            const disabled = !game.gameRunning || game.paused;
+            document.getElementById('leftTouchBtn').disabled = disabled;
+            document.getElementById('rightTouchBtn').disabled = disabled;
+            document.getElementById('downTouchBtn').disabled = disabled;
+            document.getElementById('rotateTouchBtn').disabled = disabled;
+        }
+
+        document.getElementById('leftTouchBtn').addEventListener('click', () => {
+            game.moveLeft();
+            render();
+        });
+
+        document.getElementById('rightTouchBtn').addEventListener('click', () => {
+            game.moveRight();
+            render();
+        });
+
+        document.getElementById('downTouchBtn').addEventListener('click', () => {
+            game.drop();
+            render();
+        });
+
+        document.getElementById('rotateTouchBtn').addEventListener('click', () => {
+            game.rotate();
+            render();
+        });
+
+        // Prevent default touch behaviors
+        document.getElementById('touchControls').addEventListener('touchstart', (e) => {
+            e.preventDefault();
         });
 
         // Initial render
         render();
+
+        // Detectar cambios de tamaño de ventana
+        window.addEventListener('resize', () => {
+            if (game.gameRunning && !game.paused) {
+                if (window.innerWidth <= 768) {
+                    document.getElementById('touchControls').classList.add('active');
+                } else {
+                    document.getElementById('touchControls').classList.remove('active');
+                }
+            }
+        });
     </script>
 </body>
 </html>
