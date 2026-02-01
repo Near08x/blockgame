@@ -169,66 +169,23 @@
         }
 
         .touch-controls {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 20px;
-            border-radius: 10px;
-            margin-top: 20px;
             display: none;
         }
 
         .touch-controls.active {
-            display: grid;
-            grid-template-columns: repeat(3, 50px);
-            grid-template-rows: repeat(3, 50px);
-            gap: 8px;
-            width: fit-content;
+            display: none;
         }
 
-        .touch-btn {
-            width: 50px;
-            height: 50px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 20px;
-            cursor: pointer;
-            transition: all 0.1s;
-            user-select: none;
-            -webkit-user-select: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .gesture-hint {
+            color: rgba(255, 255, 255, 0.7);
+            text-align: center;
+            font-size: 12px;
+            margin-top: 10px;
+            display: none;
         }
 
-        .touch-btn:active {
-            background: #764ba2;
-            transform: scale(0.95);
-        }
-
-        .touch-btn:disabled {
-            background: #555;
-            cursor: not-allowed;
-        }
-
-        .touch-btn-rotate {
-            grid-column: 2;
-            grid-row: 1;
-        }
-
-        .touch-btn-left {
-            grid-column: 1;
-            grid-row: 2;
-        }
-
-        .touch-btn-down {
-            grid-column: 2;
-            grid-row: 2;
-        }
-
-        .touch-btn-right {
-            grid-column: 3;
-            grid-row: 2;
+        .gesture-hint.active {
+            display: block;
         }
 
         @media (max-width: 768px) {
@@ -294,12 +251,11 @@
                 <button id="restartBtn" disabled>Reiniciar</button>
             </div>
 
-            <div class="touch-controls" id="touchControls">
-                <button class="touch-btn touch-btn-rotate" id="rotateTouchBtn">🔄</button>
-                <button class="touch-btn touch-btn-left" id="leftTouchBtn">⬅️</button>
-                <button class="touch-btn touch-btn-down" id="downTouchBtn">⬇️</button>
-                <button class="touch-btn touch-btn-right" id="rightTouchBtn">➡️</button>
+            <div class="gesture-hint" id="gestureHint">
+                👆 Toque para rotar | ⬅️ Desliza para mover | ⬇️ Desliza hacia abajo
             </div>
+
+            <div class="touch-controls" id="touchControls"></div>
 
             <div id="gameOverDiv"></div>
         </div>
@@ -624,9 +580,9 @@
             document.getElementById('startBtn').disabled = true;
             document.getElementById('pauseBtn').disabled = false;
             document.getElementById('restartBtn').disabled = false;
-            // Mostrar controles táctiles solo en móviles
+            // Mostrar hint de gestos solo en móviles
             if (window.innerWidth <= 768) {
-                document.getElementById('touchControls').classList.add('active');
+                document.getElementById('gestureHint').classList.add('active');
             }
             updateTouchButtonsState();
             render();
@@ -645,43 +601,70 @@
             document.getElementById('pauseBtn').textContent = 'Pausar';
             document.getElementById('restartBtn').disabled = true;
             document.getElementById('gameOverDiv').innerHTML = '';
-            document.getElementById('touchControls').classList.remove('active');
+            document.getElementById('gestureHint').classList.remove('active');
             render();
         });
 
         // Touch controls
         function updateTouchButtonsState() {
             const disabled = !game.gameRunning || game.paused;
-            document.getElementById('leftTouchBtn').disabled = disabled;
-            document.getElementById('rightTouchBtn').disabled = disabled;
-            document.getElementById('downTouchBtn').disabled = disabled;
-            document.getElementById('rotateTouchBtn').disabled = disabled;
         }
 
-        document.getElementById('leftTouchBtn').addEventListener('click', () => {
-            game.moveLeft();
-            render();
-        });
+        // Gesture controls for mobile
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchEndX = 0;
+        let touchEndY = 0;
+        let isSwipe = false;
 
-        document.getElementById('rightTouchBtn').addEventListener('click', () => {
-            game.moveRight();
-            render();
-        });
+        document.getElementById('gameBoard').addEventListener('touchstart', (e) => {
+            if (!game.gameRunning || game.paused) return;
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+            isSwipe = false;
+        }, false);
 
-        document.getElementById('downTouchBtn').addEventListener('click', () => {
-            game.drop();
-            render();
-        });
+        document.getElementById('gameBoard').addEventListener('touchmove', (e) => {
+            if (!game.gameRunning || game.paused) return;
+            isSwipe = true;
+        }, false);
 
-        document.getElementById('rotateTouchBtn').addEventListener('click', () => {
-            game.rotate();
+        document.getElementById('gameBoard').addEventListener('touchend', (e) => {
+            if (!game.gameRunning || game.paused) return;
+            touchEndX = e.changedTouches[0].screenX;
+            touchEndY = e.changedTouches[0].screenY;
+            
+            if (isSwipe) {
+                handleSwipe();
+            } else {
+                // Toque sin movimiento = rotar
+                game.rotate();
+            }
             render();
-        });
+        }, false);
 
-        // Prevent default touch behaviors
-        document.getElementById('touchControls').addEventListener('touchstart', (e) => {
-            e.preventDefault();
-        });
+        function handleSwipe() {
+            const diffX = touchEndX - touchStartX;
+            const diffY = touchEndY - touchStartY;
+            const threshold = 30;
+
+            // Si el movimiento es más vertical que horizontal
+            if (Math.abs(diffY) > Math.abs(diffX)) {
+                if (diffY > threshold) {
+                    // Deslizar hacia abajo = bajar pieza
+                    game.drop();
+                }
+            } else {
+                // Movimiento horizontal
+                if (diffX > threshold) {
+                    // Deslizar a la derecha
+                    game.moveRight();
+                } else if (diffX < -threshold) {
+                    // Deslizar a la izquierda
+                    game.moveLeft();
+                }
+            }
+        }
 
         // Initial render
         render();
@@ -690,9 +673,9 @@
         window.addEventListener('resize', () => {
             if (game.gameRunning && !game.paused) {
                 if (window.innerWidth <= 768) {
-                    document.getElementById('touchControls').classList.add('active');
+                    document.getElementById('gestureHint').classList.add('active');
                 } else {
-                    document.getElementById('touchControls').classList.remove('active');
+                    document.getElementById('gestureHint').classList.remove('active');
                 }
             }
         });
