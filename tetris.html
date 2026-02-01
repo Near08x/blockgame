@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Tetris</title>
     <style>
         * {
@@ -20,6 +20,10 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             font-family: 'Arial', sans-serif;
             padding: 20px;
+            overflow: hidden;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
         }
 
         h1 {
@@ -143,6 +147,9 @@
             margin-top: 10px;
             width: 100%;
             transition: background 0.3s;
+            -webkit-user-select: none;
+            user-select: none;
+            touch-action: manipulation;
         }
 
         button:hover {
@@ -152,6 +159,22 @@
         button:disabled {
             background: #555;
             cursor: not-allowed;
+        }
+
+        #startBtn {
+            background: #00d084;
+            font-size: 18px;
+            font-weight: bold;
+            padding: 15px 20px;
+            margin-top: 15px;
+        }
+
+        #startBtn:hover {
+            background: #00b870;
+        }
+
+        #startBtn:disabled {
+            background: #007a4d;
         }
 
         .game-over {
@@ -194,8 +217,9 @@
                 gap: 20px;
             }
 
-            .touch-controls.active {
-                display: grid;
+            .sidebar {
+                order: -1;
+                width: 100%;
             }
 
             .game-board {
@@ -215,10 +239,20 @@
             .info, .next-piece, .controls {
                 padding: 15px;
             }
+
+            button {
+                font-size: 14px;
+                padding: 8px 16px;
+            }
+
+            #startBtn {
+                font-size: 16px;
+                padding: 12px 20px;
+            }
         }
 
         @media (min-width: 769px) {
-            .touch-controls {
+            .gesture-hint {
                 display: none !important;
             }
         }
@@ -575,6 +609,23 @@
             render();
         });
 
+        // Prevenir zoom pinch
+        document.addEventListener('touchmove', (e) => {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        // Prevenir doble tap zoom
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', (e) => {
+            const now = Date.now();
+            if (now - lastTouchEnd <= 300) {
+                e.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+
         document.getElementById('startBtn').addEventListener('click', () => {
             game.start();
             document.getElementById('startBtn').disabled = true;
@@ -617,22 +668,30 @@
         let touchEndY = 0;
         let isSwipe = false;
 
-        document.getElementById('gameBoard').addEventListener('touchstart', (e) => {
+        const gameBoard = document.getElementById('gameBoard');
+        
+        gameBoard.addEventListener('touchstart', (e) => {
             if (!game.gameRunning || game.paused) return;
-            touchStartX = e.changedTouches[0].screenX;
-            touchStartY = e.changedTouches[0].screenY;
+            e.preventDefault();
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
             isSwipe = false;
-        }, false);
+        }, { passive: false });
 
-        document.getElementById('gameBoard').addEventListener('touchmove', (e) => {
+        gameBoard.addEventListener('touchmove', (e) => {
             if (!game.gameRunning || game.paused) return;
+            e.preventDefault();
             isSwipe = true;
-        }, false);
+        }, { passive: false });
 
-        document.getElementById('gameBoard').addEventListener('touchend', (e) => {
+        gameBoard.addEventListener('touchend', (e) => {
             if (!game.gameRunning || game.paused) return;
-            touchEndX = e.changedTouches[0].screenX;
-            touchEndY = e.changedTouches[0].screenY;
+            e.preventDefault();
+            
+            if (e.changedTouches.length === 0) return;
+            
+            touchEndX = e.changedTouches[0].clientX;
+            touchEndY = e.changedTouches[0].clientY;
             
             if (isSwipe) {
                 handleSwipe();
@@ -641,12 +700,12 @@
                 game.rotate();
             }
             render();
-        }, false);
+        }, { passive: false });
 
         function handleSwipe() {
             const diffX = touchEndX - touchStartX;
             const diffY = touchEndY - touchStartY;
-            const threshold = 30;
+            const threshold = 20;
 
             // Si el movimiento es más vertical que horizontal
             if (Math.abs(diffY) > Math.abs(diffX)) {
